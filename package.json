@@ -1,0 +1,10 @@
+{
+  "name": "shipping-secure-service",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "start": "node --env-file=.env src/server.js",
+    "register-script": "node --env-file=.env src/scriptTag.js"
+  }
+}

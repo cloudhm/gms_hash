@@ -16,8 +16,8 @@ export function eligibleSubtotal(lineItems, productId) {
 export function pickVariant({ subtotal, rate, maxCovered, variants }) {
   if (!(subtotal > 0) || !variants?.length) return null;
   const covered = Math.min(subtotal, maxCovered);
-  const raw = covered * rate;
-  const cap = maxCovered * rate;
+  const raw = Math.round(covered * rate * 100) / 100;
+  const cap = Math.round(maxCovered * rate * 100) / 100;
   const eligible = variants
     .map((v) => ({ ...v, price: money(v.price) }))
     .filter((v) => v.price <= cap)

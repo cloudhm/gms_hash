@@ -59,3 +59,10 @@ test('returns null when no variants under cap', () => {
 test('returns null when subtotal is 0', () => {
   assert.equal(pickVariant({ subtotal: 0, ...opts }), null);
 });
+
+test('$57.50 raw fee picks $1.15 tier not next', () => {
+  const r = pickVariant({ subtotal: 57.5, ...opts });
+  assert.equal(r.raw, 1.15);
+  assert.equal(r.variant.id, 'v2');
+  assert.equal(r.variant.price, 1.15);
+});

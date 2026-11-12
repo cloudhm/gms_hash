@@ -30,3 +30,11 @@ test('throws when PROTECTION_RATE missing', () => {
 test('throws when PROTECTION_RATE is not a number', () => {
   assert.throws(() => loadConfig({ ...base, PROTECTION_RATE: 'abc' }), /PROTECTION_RATE/);
 });
+
+test('throws when PROTECTION_RATE is whitespace only', () => {
+  assert.throws(() => loadConfig({ ...base, PROTECTION_RATE: '   ' }), /PROTECTION_RATE/);
+});
+
+test('throws when PROTECTION_RATE is zero', () => {
+  assert.throws(() => loadConfig({ ...base, PROTECTION_RATE: '0' }), /PROTECTION_RATE/);
+});

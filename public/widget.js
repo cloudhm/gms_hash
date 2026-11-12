@@ -19,8 +19,8 @@
   function pickVariant({ subtotal, rate, maxCovered, variants }) {
     if (!(subtotal > 0) || !variants?.length) return null;
     const covered = Math.min(subtotal, maxCovered);
-    const raw = covered * rate;
-    const cap = maxCovered * rate;
+    const raw = Math.round(covered * rate * 100) / 100;
+    const cap = Math.round(maxCovered * rate * 100) / 100;
     const eligible = variants
       .map((v) => ({ ...v, price: money(v.price) }))
       .filter((v) => v.price <= cap)
@@ -83,7 +83,8 @@
   let checkboxEl = null;
   let priceEl = null;
   let errorEl = null;
-  let syncing = false;
+  let syncQueue = Promise.resolve();
+  let syncInFlight = null;
   let mounted = false;
 
   async function fetchCart() {
@@ -269,19 +270,22 @@
   }
 
   async function syncCart(wantProtection) {
-    if (!cfg || syncing) return;
-    syncing = true;
-    setErrorVisible(false);
-    try {
-      const cart = await fetchCart();
-      await ensureProtection(cart, wantProtection);
-      await render();
-    } catch {
-      if (wantProtection) setErrorVisible(true);
-      throw new Error('sync failed');
-    } finally {
-      syncing = false;
-    }
+    if (!cfg) return;
+    const run = async () => {
+      setErrorVisible(false);
+      try {
+        const cart = await fetchCart();
+        await ensureProtection(cart, wantProtection);
+        await render();
+      } catch {
+        if (wantProtection) setErrorVisible(true);
+        throw new Error('sync failed');
+      }
+    };
+    const next = syncQueue.then(run, run);
+    syncInFlight = next.catch(() => {});
+    syncQueue = syncInFlight;
+    return next;
   }
 
   function navigateCheckout() {
@@ -292,6 +296,27 @@
     }
     const form = checkoutEl.closest('form');
     if (form) {
+      const isSubmitter =
+        checkoutEl.tagName === 'BUTTON' ||
+        checkoutEl.tagName === 'INPUT' ||
+        checkoutEl.getAttribute('type') === 'submit' ||
+        checkoutEl.name === 'checkout';
+      if (isSubmitter && typeof form.requestSubmit === 'function') {
+        try {
+          form.requestSubmit(checkoutEl);
+          return;
+        } catch {
+          /* fall through */
+        }
+      }
+      if (typeof checkoutEl.click === 'function') {
+        checkoutEl.click();
+        return;
+      }
+      if (typeof form.requestSubmit === 'function') {
+        form.requestSubmit();
+        return;
+      }
       form.submit();
       return;
     }
@@ -301,6 +326,9 @@
   async function goCheckout(options) {
     const withProtection = options && options.withProtection === true;
     const want = !!withProtection;
+    if (syncInFlight) {
+      await syncInFlight;
+    }
     try {
       await syncCart(want);
     } catch {
@@ -310,16 +338,13 @@
   }
 
   function onCartEvent() {
-    if (syncing) return;
     (async () => {
       const info = await render();
       if (!info) return;
-      if (info.optIn) {
-        try {
-          await syncCart(true);
-        } catch {
-          /* display error via syncCart */
-        }
+      try {
+        await syncCart(info.optIn);
+      } catch {
+        /* display error via syncCart */
       }
     })();
   }
@@ -369,6 +394,7 @@
       setOptIn(on);
       updateCheckoutLabel(on);
       setErrorVisible(false);
+      syncCart(on).catch(() => {});
     });
 
     checkoutEl.addEventListener(

@@ -1,8 +1,11 @@
 function num(env, key) {
   const raw = env[key];
-  if (raw === undefined || raw === '') throw new Error(`missing ${key}`);
-  const n = Number(raw);
+  if (raw === undefined || raw === null) throw new Error(`missing ${key}`);
+  const trimmed = String(raw).trim();
+  if (trimmed === '') throw new Error(`missing ${key}`);
+  const n = Number(trimmed);
   if (!Number.isFinite(n) || n < 0) throw new Error(`invalid ${key}`);
+  if (key === 'PROTECTION_RATE' && !(n > 0)) throw new Error(`invalid ${key}`);
   return n;
 }
 

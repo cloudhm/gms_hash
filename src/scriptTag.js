@@ -19,7 +19,12 @@ const src = `${config.publicBaseUrl}/widget.js`;
 const api = `https://${config.shopDomain}/openapi/${config.apiVersion}/script_tags`;
 const headers = { 'Access-Token': config.token, 'Content-Type': 'application/json' };
 
-const listed = await fetch(api, { headers }).then((r) => r.json());
+const listRes = await fetch(api, { headers });
+if (!listRes.ok) {
+  console.error(`script tags list failed: HTTP ${listRes.status}`);
+  process.exit(1);
+}
+const listed = await listRes.json();
 const tags = listed.data?.script_tags || listed.data || [];
 const hit = (Array.isArray(tags) ? tags : []).find((t) => t.src === src);
 if (hit) {
@@ -37,13 +42,18 @@ if (!isPublicHttpsOrigin(config.publicBaseUrl)) {
   process.exit(2);
 }
 
-const created = await fetch(api, {
+const createRes = await fetch(api, {
   method: 'POST',
   headers,
   body: JSON.stringify({
     script_tag: { src, display_scope: 'cart', event_type: 'app' },
   }),
-}).then((r) => r.json());
+});
+if (!createRes.ok) {
+  console.error(`script tag create failed: HTTP ${createRes.status}`);
+  process.exit(1);
+}
+const created = await createRes.json();
 console.log(JSON.stringify(created, null, 2));
 if (!created.data?.script_tag?.id && created.code && created.code !== 'Success') {
   process.exit(1);

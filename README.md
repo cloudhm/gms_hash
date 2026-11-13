@@ -34,24 +34,25 @@ API 版本用 **2026-07**（环境变量 `WEBHOOK_API_VERSION`）。
 
 创建私有应用时勾选下面这些。后台中文名可能是「商品 / 自定义代码」，以 **scope 字面量** 为准。
 
-**必选（Widget + `/admin` 注册脚本）**
+**必选（同一枚 Private App Token：Widget 读商品 + 对接方写商品 + `/admin` 脚本）**
 
-| Scope | 后台常见名称 | 本项目用途 | 调用 |
+| Scope | 后台常见名称 | 谁用 | 用途 |
 |---|---|---|---|
-| `read_product` | 商品 · 查看 | 按 handle 解析保障商品，拉 variants 价档 | `GET /openapi/2026-07/products?handles=`、`GET /products/{id}` |
-| `read_script_tags` | 自定义代码 / 脚本标签 · 查看 | `/admin` 列出已注册的 Script Tag | `GET /openapi/2026-07/script_tags` |
-| `write_script_tags` | 自定义代码 / 脚本标签 · 编辑 | 注册、改 src、删除 `widget.js` 注入 | `POST` / `PUT` / `DELETE .../script_tags` |
+| `read_product` | 商品 · 查看 | 本仓库 Functions | 按 handle 解析保障商品，拉 variants |
+| `write_product` | 商品 · 编辑 | **对接方** | 给接入店铺 **新建 / 更新** 保障商品（handle、图、价档 variants） |
+| `read_script_tags` | 自定义代码 · 查看 | 本仓库 `/admin` | 列出 Script Tag |
+| `write_script_tags` | 自定义代码 · 编辑 | 本仓库 `/admin` | 注册、改 src、删除 `widget.js` |
 
-没有 `write_script_tags` 时，拉价档可能仍正常，但 `/admin` 注册脚本会 **403**（之前缺「自定义代码」就是这个）。
+`write_product` 必须开：对接方用这枚 Token 调 OpenAPI 建品/改品；本仓库不实现商品写入接口，但仍要和 Widget 共用同一私有应用。没有 `write_script_tags` 时 `/admin` 注册脚本会 **403**。
 
-**不要勾（本项目用不到）**
+**不要勾（本项目与对接约定都不走这里）**
 
-`write_product`、Webhook / 事件订阅、`read_order` / `write_order`、`read_customer`、主题、财务等。Widget 加车走店面 `/api/cart`。保障商品注入/更新、Webhook 注册由**对接方**完成，不走本仓库。
+Webhook / 事件订阅、`read_order` / `write_order`、`read_customer`、主题、财务等。Widget 加车走店面 `/api/cart`。Webhook 由对接方在店匠侧自行注册。
 
 最小集合（复制）：
 
 ```
-read_product,read_script_tags,write_script_tags
+read_product,write_product,read_script_tags,write_script_tags
 ```
 
 改过 scopes 后要 **重新生成 / 保存 Token**，旧 `TOKEN` 不会带上新权限。
@@ -139,7 +140,7 @@ Functions：仓库根目录 `functions/`（不要删）。
    （完整地址形如 `https://one.dash.cloudflare.com/<账号ID>/access-controls/apps`）
 2. **Add an application → Self-hosted**
 3. Application domain 选你的 Pages 域名（`xxx.pages.dev` 或自定义域）
-4. **只保护管理端**，不要把整站锁死（否则店铺 Script Tag / 买家会打不开 `widget.js`）：
+4. Application 用 **路径（path）** 限制，不要把整个 Pages 域名锁死。
 
 | 路径 | Access | 原因 |
 |---|---|---|
@@ -153,6 +154,19 @@ Functions：仓库根目录 `functions/`（不要删）。
 6. 加完 Access 再把 Script Tag 指到线上 `widget.js`。没加 Access 等于把店铺 Token 能力暴露在公网。
 
 本地 `npm run dev` 不走 Access，仅本机调试。
+
+#### Access 会不会影响店铺用的 JS？
+
+**按上面只锁 `/admin*` 时，不会。** 买家页通过 Script Tag 拉的是公开地址：
+
+- `{PUBLIC_BASE_URL}/widget.js`
+- `{PUBLIC_BASE_URL}/widget/config`
+
+买家没有 Cloudflare 登录态。若 Access Application 绑的是 **整个** `xxx.pages.dev`（没有 path），这两次请求会跳到 `cloudflareaccess.com`，购物车 Widget **挂不上**。
+
+正确做法：Self-hosted 应用填 **path**（例如 `/admin`、`/admin/api`），或单独建应用只覆盖管理路径；**不要**用一条「整域」规则盖住静态脚本。
+
+验证：无痕窗口打开店铺购物车，开发者工具里 `widget.js` / `widget/config` 应为 **200**，而不是 302 到 Access 登录页。
 
 ---
 

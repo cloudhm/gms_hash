@@ -12,6 +12,18 @@ const widgetPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '..',
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
   res.setHeader('Access-Control-Allow-Origin', '*');
+  if (url.pathname === '/' || url.pathname === '') {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.end(`<!doctype html><meta charset="utf-8"><title>Shipping Secure Service</title>
+<p>App is running.</p>
+<ul>
+<li><a href="/health">/health</a></li>
+<li><a href="/widget.js">/widget.js</a></li>
+<li><a href="/widget/config">/widget/config</a></li>
+</ul>
+<p>This URL is for the cart script tag, not a storefront homepage.</p>`);
+    return;
+  }
   if (url.pathname === '/health') {
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify({ ok: true }));

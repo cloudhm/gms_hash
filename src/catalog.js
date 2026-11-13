@@ -20,6 +20,7 @@ export function createCatalog(config, loader = fetchVariants) {
       if (!cache) cache = await loader(config);
       return {
         productId: config.protectionProductId,
+        handle: config.protectionHandle,
         rate: config.rate,
         maxCovered: config.maxCovered,
         feeCap: config.feeCap,

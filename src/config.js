@@ -23,7 +23,6 @@ export function loadConfig(env = process.env) {
     token: str(env, 'TOKEN'),
     apiVersion: env.WEBHOOK_API_VERSION || '2026-07',
     publicBaseUrl: str(env, 'PUBLIC_BASE_URL'),
-    protectionProductId: str(env, 'PROTECTION_PRODUCT_ID'),
     protectionHandle: str(env, 'PROTECTION_HANDLE'),
     rate,
     maxCovered,

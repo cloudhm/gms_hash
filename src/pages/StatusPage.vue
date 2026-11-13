@@ -1,26 +1,34 @@
 <template>
-  <div>
-    <h1>Shipping Secure Service</h1>
-    <p>这是私有 App 状态页（Vue + Cloudflare Pages），不是店匠后台。</p>
-    <table>
-      <tbody>
-        <tr><th>health</th><td>{{ health }}</td></tr>
-        <tr><th>productId</th><td>{{ cfg.productId || '—' }}</td></tr>
-        <tr><th>handle</th><td>{{ cfg.handle || '—' }}</td></tr>
-        <tr><th>rate</th><td>{{ cfg.rate ?? '—' }}</td></tr>
-        <tr><th>maxCovered</th><td>{{ cfg.maxCovered ?? '—' }}</td></tr>
-        <tr><th>feeCap</th><td>{{ cfg.feeCap ?? '—' }}</td></tr>
-        <tr><th>variants</th><td>{{ (cfg.variants || []).length || error || '—' }}</td></tr>
-      </tbody>
-    </table>
-    <p v-if="error" class="err">{{ error }}</p>
-    <p>
-      <a href="/health">/health</a> ·
-      <a href="/widget.js">/widget.js</a> ·
-      <a href="/widget/config">/widget/config</a> ·
+  <el-card>
+    <template #header>
+      <div class="hdr">
+        <span>Shipping Secure Service</span>
+        <el-button type="primary" link @click="$router.push('/admin')">管理</el-button>
+      </div>
+    </template>
+    <p class="hint">这是私有 App 状态页（Vue + Cloudflare Pages），不是店匠后台。</p>
+    <el-descriptions :column="1" border>
+      <el-descriptions-item label="health">{{ health }}</el-descriptions-item>
+      <el-descriptions-item label="productId">{{ cfg.productId || '—' }}</el-descriptions-item>
+      <el-descriptions-item label="handle">{{ cfg.handle || '—' }}</el-descriptions-item>
+      <el-descriptions-item label="rate">{{ cfg.rate ?? '—' }}</el-descriptions-item>
+      <el-descriptions-item label="maxCovered">{{ cfg.maxCovered ?? '—' }}</el-descriptions-item>
+      <el-descriptions-item label="feeCap">{{ cfg.feeCap ?? '—' }}</el-descriptions-item>
+      <el-descriptions-item label="variants">
+        {{ (cfg.variants || []).length || error || '—' }}
+      </el-descriptions-item>
+    </el-descriptions>
+    <el-alert v-if="error" class="gap" type="error" :title="error" show-icon :closable="false" />
+    <p class="links">
+      <a href="/health">/health</a>
+      ·
+      <a href="/widget.js">/widget.js</a>
+      ·
+      <a href="/widget/config">/widget/config</a>
+      ·
       <router-link to="/admin">/admin</router-link>
     </p>
-  </div>
+  </el-card>
 </template>
 
 <script setup>
@@ -47,3 +55,19 @@ onMounted(async () => {
   }
 });
 </script>
+
+<style scoped>
+.hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.hint,
+.links {
+  color: #606266;
+  font-size: 13px;
+}
+.gap {
+  margin-top: 12px;
+}
+</style>

@@ -52,6 +52,7 @@ const proxy =
     : {};
 
 module.exports = defineConfig({
+  transpileDependencies: ['element-plus'],
   outputDir: 'dist',
   publicPath: '/',
   productionSourceMap: false,

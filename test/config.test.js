@@ -8,7 +8,6 @@ const base = {
   TOKEN: 'tok',
   WEBHOOK_API_VERSION: '2026-07',
   PUBLIC_BASE_URL: 'https://example.com',
-  PROTECTION_PRODUCT_ID: '7c811a80-72f8-4972-9305-f32ecf8d35db',
   PROTECTION_HANDLE: 'gwofy-shipping-protection-qaqwer',
   PROTECTION_RATE: '0.02',
   PROTECTION_MAX_COVERED: '2505',
@@ -37,4 +36,16 @@ test('throws when PROTECTION_RATE is whitespace only', () => {
 
 test('throws when PROTECTION_RATE is zero', () => {
   assert.throws(() => loadConfig({ ...base, PROTECTION_RATE: '0' }), /PROTECTION_RATE/);
+});
+
+test('throws when PROTECTION_HANDLE missing', () => {
+  const env = { ...base };
+  delete env.PROTECTION_HANDLE;
+  assert.throws(() => loadConfig(env), /PROTECTION_HANDLE/);
+});
+
+test('does not require PROTECTION_PRODUCT_ID', () => {
+  const c = loadConfig(base);
+  assert.equal(c.protectionHandle, 'gwofy-shipping-protection-qaqwer');
+  assert.equal(c.protectionProductId, undefined);
 });

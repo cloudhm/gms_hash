@@ -64,6 +64,10 @@
   }
 
   function findCheckoutEl() {
+    return findAllCheckoutEls()[0] || null;
+  }
+
+  function findAllCheckoutEls() {
     const selectors = [
       '[role="checkout"]',
       'spz-checkout button',
@@ -82,12 +86,18 @@
     const nodes = document.querySelectorAll(selectors);
     const scored = [];
     for (const el of nodes) {
+      if (el.dataset.sssBound) continue;
       if (!isVisible(el) || !looksLikeCheckout(el)) continue;
-      const inSummary = el.closest('#cart-summary-render, [id*="cart-summary"], spz-checkout, .cart-footer, [class*="cart-summary"]');
-      scored.push({ el, score: inSummary ? 2 : 1 });
+      const inSummary = el.closest(
+        '#cart-summary-render, [id*="cart-summary"], spz-checkout, .cart-footer, [class*="cart-summary"]',
+      );
+      const inDrawer = el.closest(
+        '[class*="drawer"], [class*="Drawer"], [class*="mini-cart"], [class*="minicart"], [class*="MiniCart"], [class*="sidecart"], [class*="cart-popup"], [class*="CartPopup"], [role="dialog"]',
+      );
+      scored.push({ el, score: (inDrawer ? 3 : 0) + (inSummary ? 2 : 1) });
     }
     scored.sort((a, b) => b.score - a.score);
-    return scored[0] ? scored[0].el : null;
+    return scored.map((s) => s.el);
   }
 
   function waitForCartItems(timeoutMs) {
@@ -392,33 +402,34 @@
   }
 
   function updateCheckoutLabel(subtotal, picked) {
-    if (!checkoutEl) return;
-    if (!checkoutEl.dataset.sssOriginalText) {
-      checkoutEl.dataset.sssOriginalText = (checkoutEl.textContent || '').trim();
-    }
-    const original = checkoutEl.dataset.sssOriginalText;
     const sub = subtotal == null ? lastSubtotal : subtotal;
     const pick = picked === undefined ? lastPicked : picked;
     const total = payableTotal(true, sub, pick);
-    checkoutEl.textContent = original + '  ' + formatPrice(total);
+    document.querySelectorAll('[data-sss-bound]').forEach((el) => {
+      if (!el.dataset.sssOriginalText) {
+        el.dataset.sssOriginalText = (el.textContent || '').trim();
+      }
+      el.textContent = el.dataset.sssOriginalText + '  ' + formatPrice(total);
+    });
   }
 
   function setErrorVisible(show, message) {
-    if (!errorEl) return;
-    errorEl.hidden = !show;
-    if (show && message) errorEl.textContent = message;
-    if (show && !message) errorEl.textContent = 'Unable to add protection.';
+    document.querySelectorAll('.sss-error').forEach((el) => {
+      el.hidden = !show;
+      if (show) el.textContent = message || 'Unable to add protection.';
+    });
   }
 
   function updatePriceDisplay(picked) {
-    if (!priceEl) return;
-    if (picked?.variant) {
-      priceEl.textContent = formatPrice(picked.variant.price);
-      priceEl.style.display = '';
-    } else {
-      priceEl.textContent = '';
-      priceEl.style.display = 'none';
-    }
+    document.querySelectorAll('.sss-widget .sss-price').forEach((el) => {
+      if (picked?.variant) {
+        el.textContent = formatPrice(picked.variant.price);
+        el.style.display = '';
+      } else {
+        el.textContent = '';
+        el.style.display = 'none';
+      }
+    });
   }
 
   async function render() {
@@ -462,9 +473,10 @@
     return next;
   }
 
-  function triggerNativeCheckout() {
+  function triggerNativeCheckout(button) {
+    const target = button || checkoutEl;
     const cartHost =
-      (checkoutEl && checkoutEl.closest && checkoutEl.closest('spz-cart, spz-checkout')) ||
+      (target && target.closest && target.closest('spz-cart, spz-checkout')) ||
       document.querySelector('spz-cart, spz-checkout');
     if (cartHost && typeof cartHost.checkout === 'function') {
       cartHost.checkout();
@@ -472,7 +484,7 @@
     }
     passThroughCheckout = true;
     try {
-      checkoutEl.click();
+      if (target) target.click();
     } finally {
       setTimeout(() => {
         passThroughCheckout = false;
@@ -539,12 +551,13 @@
 
   async function goCheckout(options) {
     const want = !!(options && options.withProtection);
+    const button = (options && options.button) || checkoutEl;
     setErrorVisible(false);
     try {
       await startCheckoutSession(want);
     } catch (err) {
       setErrorVisible(true, err && err.message);
-      triggerNativeCheckout();
+      triggerNativeCheckout(button);
     }
   }
 
@@ -559,61 +572,59 @@
   }
 
   function mount(checkout) {
+    if (!checkout || checkout.dataset.sssBound) return;
     checkoutEl = checkout;
-    if (!checkoutEl.dataset.sssOriginalText) {
-      checkoutEl.dataset.sssOriginalText = (checkoutEl.textContent || '').trim();
+    checkout.dataset.sssBound = '1';
+    if (!checkout.dataset.sssOriginalText) {
+      checkout.dataset.sssOriginalText = (checkout.textContent || '').trim();
     }
 
     injectStyles();
 
-    widgetEl = document.createElement('div');
-    widgetEl.id = 'sss-widget';
-    widgetEl.className = 'sss-widget';
-    widgetEl.innerHTML =
+    const widget = document.createElement('div');
+    widget.className = 'sss-widget';
+    widget.innerHTML =
       '<div class="sss-title">Shipping Secure Service</div>' +
       '<div class="sss-price"></div>' +
       '<div class="sss-error" hidden>Unable to add protection.</div>';
 
-    withoutLink = document.createElement('a');
-    withoutLink.href = '#';
-    withoutLink.className = 'sss-without';
-    withoutLink.textContent = 'Checkout without protection';
+    const without = document.createElement('a');
+    without.href = '#';
+    without.className = 'sss-without';
+    without.textContent = 'Checkout without protection';
 
-    priceEl = widgetEl.querySelector('.sss-price');
-    errorEl = widgetEl.querySelector('.sss-error');
-
-    const parent = checkoutEl.parentNode;
-    parent.insertBefore(widgetEl, checkoutEl);
-    if (checkoutEl.nextSibling) {
-      parent.insertBefore(withoutLink, checkoutEl.nextSibling);
+    const parent = checkout.parentNode;
+    parent.insertBefore(widget, checkout);
+    if (checkout.nextSibling) {
+      parent.insertBefore(without, checkout.nextSibling);
     } else {
-      parent.appendChild(withoutLink);
+      parent.appendChild(without);
     }
 
-    checkoutEl.addEventListener(
+    checkout.addEventListener(
       'click',
       (e) => {
         if (passThroughCheckout) return;
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
-        goCheckout({ withProtection: true });
+        goCheckout({ withProtection: true, button: checkout });
       },
       true,
     );
 
-    withoutLink.addEventListener('click', (e) => {
+    without.addEventListener('click', (e) => {
       e.preventDefault();
-      goCheckout({ withProtection: false });
+      goCheckout({ withProtection: false, button: checkout });
     });
 
-    document.addEventListener('dj.cartChange', onCartEvent);
-    document.addEventListener('dj.addToCart', onCartEvent);
-
     mounted = true;
-    stripProtectionFromCart()
-      .catch(() => {})
-      .then(() => render());
+    render();
+  }
+
+  function scanAndMount() {
+    if (!cfg) return;
+    findAllCheckoutEls().forEach((el) => mount(el));
   }
 
   window.syncCart = syncCart;
@@ -631,29 +642,28 @@
     }
 
     const start = async () => {
-      await waitForCartItems(8000);
-      try {
-        await stripProtectionFromCart();
-      } catch {
-        /* still mount widget */
-      }
-      await new Promise((r) => setTimeout(r, 400));
-      const checkout = await waitForCheckout(8000);
-      if (checkout) {
-        mount(checkout);
-        return;
-      }
-      const anchor = fallbackAnchor();
-      if (!anchor) return;
-      const dummy = document.createElement('button');
-      dummy.type = 'button';
-      dummy.style.display = 'none';
-      dummy.dataset.sssOriginalText = 'Checkout';
-      dummy.addEventListener('click', () => {
-        window.location.href = cartRoot() + '/checkout';
+      document.addEventListener('dj.cartChange', onCartEvent);
+      document.addEventListener('dj.addToCart', () => {
+        onCartEvent();
+        setTimeout(scanAndMount, 200);
+        setTimeout(scanAndMount, 700);
       });
-      anchor.appendChild(dummy);
-      mount(dummy);
+      new MutationObserver(() => scanAndMount()).observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['class', 'style', 'hidden', 'open', 'aria-hidden'],
+      });
+      if (/\/cart\/?$/.test(location.pathname)) {
+        await waitForCartItems(8000);
+        try {
+          await stripProtectionFromCart();
+        } catch {
+          /* still mount */
+        }
+        await new Promise((r) => setTimeout(r, 300));
+      }
+      scanAndMount();
     };
 
     if (document.readyState === 'loading') {

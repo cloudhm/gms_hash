@@ -16,6 +16,7 @@ function isPublicHttpsOrigin(baseUrl) {
 
 const config = loadConfig();
 const src = `${config.publicBaseUrl}/widget.js`;
+const DISPLAY_SCOPE = 'index,collection,product,search,cart';
 const api = `https://${config.shopDomain}/openapi/${config.apiVersion}/script_tags`;
 const headers = { 'Access-Token': config.token, 'Content-Type': 'application/json' };
 
@@ -28,8 +29,20 @@ const listed = await listRes.json();
 const tags = listed.data?.script_tags || listed.data || [];
 const hit = (Array.isArray(tags) ? tags : []).find((t) => t.src === src);
 if (hit) {
-  console.log('script tag exists', hit.id);
-  process.exit(0);
+  if (hit.display_scope === DISPLAY_SCOPE) {
+    console.log('script tag exists', hit.id, hit.display_scope);
+    process.exit(0);
+  }
+  const updated = await fetch(`${api}/${hit.id}`, {
+    method: 'PUT',
+    headers,
+    body: JSON.stringify({
+      script_tag: { src, display_scope: DISPLAY_SCOPE, event_type: 'app' },
+    }),
+  });
+  const body = await updated.json().catch(() => ({}));
+  console.log(JSON.stringify(body, null, 2));
+  process.exit(updated.ok ? 0 : 1);
 }
 
 if (!isPublicHttpsOrigin(config.publicBaseUrl)) {
@@ -46,7 +59,7 @@ const createRes = await fetch(api, {
   method: 'POST',
   headers,
   body: JSON.stringify({
-    script_tag: { src, display_scope: 'cart', event_type: 'app' },
+        script_tag: { src, display_scope: DISPLAY_SCOPE, event_type: 'app' },
   }),
 });
 if (!createRes.ok) {

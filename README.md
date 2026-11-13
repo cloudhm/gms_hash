@@ -92,7 +92,7 @@ npm run dev
 开发服务：`http://localhost:8787/`
 
 - `/` 状态页（health、handle、价档数量）
-- `/admin` Script Tag / Webhook 管理（本地无口令；线上用 Cloudflare Access 限制）
+- `/admin` Script Tag / Webhook 管理（本地无口令；**线上必须**走 Zero Trust `/one/access-controls/apps`）
 - `/widget.js` 店面脚本
 - `/widget/config` 公开配置（不含 TOKEN）
 
@@ -131,9 +131,33 @@ Functions：仓库根目录 `functions/`（不要删）。
 
 不要配：`PROTECTION_PRODUCT_ID`、`FUNCTIONS_PROXY`。`APP_UID` / `APP_SECRET` 本项目 Functions 不读。
 
-建议用 **Cloudflare Access** 保护 `/admin` 和 `/admin/api/*`。改 Secrets 后重新部署一次。
+改 Secrets 后重新部署一次。部署完成后把 Script Tag 的 `src` 改成 `https://你的域名/widget.js`。
 
-部署完成后把 Script Tag 的 `src` 改成 `https://你的域名/widget.js`。
+### 线上必须加 Cloudflare Access（否则谁都能看、都能改）
+
+本项目 **`/admin` 没有应用口令**。Pages 一旦公开，任何人都能打开管理页、注册/删除 Script Tag 和 Webhook，Functions 会用你的 `TOKEN` 改店铺。
+
+**上线后必须**在 Zero Trust 里加 Access Application，再开站点：
+
+1. 打开 Cloudflare **Zero Trust** 控制台：路径 **`/one/access-controls/apps`**  
+   （完整地址形如 `https://one.dash.cloudflare.com/<账号ID>/access-controls/apps`）
+2. **Add an application → Self-hosted**
+3. Application domain 选你的 Pages 域名（`xxx.pages.dev` 或自定义域）
+4. **只保护管理端**，不要把整站锁死（否则店铺 Script Tag / 买家会打不开 `widget.js`）：
+
+| 路径 | Access | 原因 |
+|---|---|---|
+| `/admin` | **必须保护** | 管理 UI |
+| `/admin/api*` | **必须保护** | 改 Script Tag / Webhook 的接口 |
+| `/` | 建议保护 | 状态页会露出 productId、handle、价档数量 |
+| `/widget.js` | **不要保护** | 店面 Script Tag 要公开拉脚本 |
+| `/widget/config` | **不要保护** | widget 算费要用 |
+| `/webhooks` | **不要保护** | 店匠服务器 POST 回调，过不了登录页 |
+
+5. Policy：只允许你的邮箱 / 团队（Google、One-time PIN 等）。未登录访问 `/admin` 应跳到 Cloudflare 登录，而不是直接进页。
+6. 加完 Access 再把 Script Tag 指到线上 `widget.js`。没加 Access 等于把店铺 Token 能力暴露在公网。
+
+本地 `npm run dev` 不走 Access，仅本机调试。
 
 ---
 

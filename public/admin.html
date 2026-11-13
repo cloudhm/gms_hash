@@ -51,15 +51,31 @@
   <label>topic</label>
   <input id="hook-topic" type="text" list="hook-topics" placeholder="orders/create" />
   <datalist id="hook-topics">
-    <option value="orders/create"></option>
+    <option value="cart/create"></option>
+    <option value="cart/update"></option>
+    <option value="fulfillments/create"></option>
+    <option value="fulfillments/update"></option>
     <option value="orders/cancelled"></option>
+    <option value="orders/create"></option>
+    <option value="orders/delete"></option>
+    <option value="orders/finished"></option>
     <option value="orders/fulfilled"></option>
     <option value="orders/paid"></option>
-    <option value="orders/updated"></option>
+    <option value="orders/partially_fulfilled"></option>
+    <option value="orders/partially_refunded"></option>
+    <option value="orders/refunded"></option>
+    <option value="orders/update"></option>
+    <option value="procurements/create"></option>
+    <option value="procurements/update"></option>
     <option value="products/create"></option>
-    <option value="products/update"></option>
     <option value="products/delete"></option>
-    <option value="app/uninstalled"></option>
+    <option value="products/update"></option>
+    <option value="suppliers/create"></option>
+    <option value="suppliers/delete"></option>
+    <option value="suppliers/update"></option>
+    <option value="app/subscriptions_update"></option>
+    <option value="app/subscriptions_approaching_capped_amount"></option>
+    <option value="app/purchases_one_time_update"></option>
   </datalist>
   <div class="row">
     <button type="button" id="btn-hook-create">注册 Webhook</button>

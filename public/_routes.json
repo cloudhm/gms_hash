@@ -1,5 +1,5 @@
 {
   "version": 1,
-  "include": ["/admin/api/*", "/widget/config", "/webhooks", "/health"],
+  "include": ["/admin/api/*", "/widget/config", "/health"],
   "exclude": []
 }

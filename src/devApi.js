@@ -1,6 +1,5 @@
 import { onRequestGet as healthGet } from '../functions/health.js';
 import { onRequestGet as configGet } from '../functions/widget/config.js';
-import { onRequestPost as webhooksPost } from '../functions/webhooks.js';
 import {
   onRequestGet as tagsGet,
   onRequestPost as tagsPost,
@@ -9,14 +8,6 @@ import {
   onRequestPut as tagsPut,
   onRequestDelete as tagsDelete,
 } from '../functions/admin/api/script-tags/[id].js';
-import {
-  onRequestGet as hooksGet,
-  onRequestPost as hooksPost,
-} from '../functions/admin/api/webhooks.js';
-import {
-  onRequestPut as hooksPut,
-  onRequestDelete as hooksDelete,
-} from '../functions/admin/api/webhooks/[id].js';
 
 function readRaw(req) {
   if (req.body != null && typeof req.body !== 'string' && !Buffer.isBuffer(req.body)) {
@@ -36,20 +27,12 @@ function readRaw(req) {
 function matchHandler(method, pathname) {
   if (pathname === '/health' && method === 'GET') return { fn: healthGet };
   if (pathname === '/widget/config' && method === 'GET') return { fn: configGet };
-  if (pathname === '/webhooks' && method === 'POST') return { fn: webhooksPost };
   if (pathname === '/admin/api/script-tags' && method === 'GET') return { fn: tagsGet };
   if (pathname === '/admin/api/script-tags' && method === 'POST') return { fn: tagsPost };
   const tagsId = pathname.match(/^\/admin\/api\/script-tags\/([^/]+)$/);
   if (tagsId && method === 'PUT') return { fn: tagsPut, params: { id: decodeURIComponent(tagsId[1]) } };
   if (tagsId && method === 'DELETE') {
     return { fn: tagsDelete, params: { id: decodeURIComponent(tagsId[1]) } };
-  }
-  if (pathname === '/admin/api/webhooks' && method === 'GET') return { fn: hooksGet };
-  if (pathname === '/admin/api/webhooks' && method === 'POST') return { fn: hooksPost };
-  const hookId = pathname.match(/^\/admin\/api\/webhooks\/([^/]+)$/);
-  if (hookId && method === 'PUT') return { fn: hooksPut, params: { id: decodeURIComponent(hookId[1]) } };
-  if (hookId && method === 'DELETE') {
-    return { fn: hooksDelete, params: { id: decodeURIComponent(hookId[1]) } };
   }
   return null;
 }

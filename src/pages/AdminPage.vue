@@ -2,18 +2,18 @@
   <el-space direction="vertical" fill style="width: 100%" :size="16">
     <el-page-header @back="$router.push('/')">
       <template #content>
-        <span>Script Tag · Webhook 管理</span>
+        <span>Script Tag 管理</span>
       </template>
     </el-page-header>
 
     <el-alert
-      title="访问限制由 Cloudflare 控制。TOKEN 只在 Functions 里使用。"
+      title="访问限制由 Cloudflare 控制。TOKEN 只在 Functions 里使用。保障商品与 Webhook 由对接方在店铺侧处理。"
       type="info"
       :closable="false"
     />
 
     <el-card>
-      <el-button type="primary" :loading="loading" @click="refresh">刷新全部</el-button>
+      <el-button type="primary" :loading="loading" @click="refresh">刷新</el-button>
       <el-alert
         v-if="msg"
         class="gap"
@@ -56,52 +56,6 @@
         </template>
       </el-table-column>
     </el-table>
-
-    <el-card>
-      <template #header>Webhook 注册</template>
-      <p class="hint">
-        默认地址为本站 <code>/webhooks</code>。topic 必须是平台允许列表中的值（例如
-        <code>orders/update</code>）。
-      </p>
-      <el-form label-position="top">
-        <el-form-item label="address">
-          <el-input v-model="address" />
-        </el-form-item>
-        <el-form-item label="topic">
-          <el-select
-            v-model="topic"
-            filterable
-            allow-create
-            default-first-option
-            placeholder="orders/create"
-            style="width: 100%"
-          >
-            <el-option v-for="t in topics" :key="t" :label="t" :value="t" />
-          </el-select>
-        </el-form-item>
-        <el-button type="primary" @click="createHook">注册 Webhook</el-button>
-      </el-form>
-    </el-card>
-
-    <el-table :data="hooks" border empty-text="暂无 Webhook">
-      <el-table-column prop="id" label="id" min-width="220">
-        <template #default="{ row }">
-          <code>{{ row.id }}</code>
-        </template>
-      </el-table-column>
-      <el-table-column label="address / topic" min-width="280">
-        <template #default="{ row }">
-          <el-input v-model="row.address" class="mb" />
-          <el-input v-model="row.topic" />
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" width="180">
-        <template #default="{ row }">
-          <el-button type="primary" size="small" @click="saveHook(row)">更新</el-button>
-          <el-button type="danger" size="small" @click="delHook(row)">删除</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
   </el-space>
 </template>
 
@@ -109,43 +63,12 @@
 import { ElMessageBox } from 'element-plus';
 import { onMounted, ref } from 'vue';
 
-const topics = [
-  'cart/create',
-  'cart/update',
-  'fulfillments/create',
-  'fulfillments/update',
-  'orders/cancelled',
-  'orders/create',
-  'orders/delete',
-  'orders/finished',
-  'orders/fulfilled',
-  'orders/paid',
-  'orders/partially_fulfilled',
-  'orders/partially_refunded',
-  'orders/refunded',
-  'orders/update',
-  'procurements/create',
-  'procurements/update',
-  'products/create',
-  'products/delete',
-  'products/update',
-  'suppliers/create',
-  'suppliers/delete',
-  'suppliers/update',
-  'app/subscriptions_update',
-  'app/subscriptions_approaching_capped_amount',
-  'app/purchases_one_time_update',
-];
-
 const loading = ref(false);
 const msg = ref('');
 const ok = ref(true);
 const src = ref('');
 const scope = ref('index,collection,product,search,cart');
-const address = ref('');
-const topic = ref('');
 const tags = ref([]);
-const hooks = ref([]);
 
 function setMsg(text, isOk) {
   msg.value = text || '';
@@ -172,24 +95,11 @@ async function refreshTags() {
   return tags.value.length;
 }
 
-async function refreshHooks() {
-  const data = await api('/admin/api/webhooks');
-  if (!address.value) address.value = data.defaultAddress || '';
-  hooks.value = (data.webhooks || []).map((h) => ({ ...h }));
-  return hooks.value.length;
-}
-
 async function refresh() {
   loading.value = true;
   try {
     const nTags = await refreshTags();
-    try {
-      const nHooks = await refreshHooks();
-      setMsg('已加载 Script Tag ' + nTags + ' 条、Webhook ' + nHooks + ' 条', true);
-    } catch (e) {
-      hooks.value = [];
-      setMsg('Script Tag ' + nTags + ' 条；Webhook：' + e.message, false);
-    }
+    setMsg('已加载 Script Tag ' + nTags + ' 条', true);
   } catch (e) {
     setMsg(e.message, false);
   } finally {
@@ -240,51 +150,6 @@ async function delTag(t) {
   }
 }
 
-async function createHook() {
-  try {
-    await api('/admin/api/webhooks', {
-      method: 'POST',
-      body: JSON.stringify({ address: address.value, topic: topic.value }),
-    });
-    setMsg('Webhook 已注册', true);
-    await refreshHooks();
-  } catch (e) {
-    setMsg(e.message, false);
-  }
-}
-
-async function saveHook(h) {
-  try {
-    await api('/admin/api/webhooks/' + encodeURIComponent(h.id), {
-      method: 'PUT',
-      body: JSON.stringify({ address: h.address, topic: h.topic }),
-    });
-    setMsg('Webhook 已更新', true);
-    await refreshHooks();
-  } catch (e) {
-    setMsg(e.message, false);
-  }
-}
-
-async function delHook(h) {
-  try {
-    await ElMessageBox.confirm(
-      '删除这条 Webhook？平台将不再向该地址推送 ' + (h.topic || '') + '。',
-      '确认删除',
-      { type: 'warning' },
-    );
-  } catch {
-    return;
-  }
-  try {
-    await api('/admin/api/webhooks/' + encodeURIComponent(h.id), { method: 'DELETE' });
-    setMsg('Webhook 已删除', true);
-    await refreshHooks();
-  } catch (e) {
-    setMsg(e.message, false);
-  }
-}
-
 onMounted(() => {
   refresh();
 });
@@ -296,9 +161,5 @@ onMounted(() => {
 }
 .mb {
   margin-bottom: 8px;
-}
-.hint {
-  color: #606266;
-  font-size: 13px;
 }
 </style>

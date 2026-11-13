@@ -47,7 +47,6 @@ const proxy =
         '/widget/config': { target: proxyTarget, changeOrigin: true },
         '/admin/api': { target: proxyTarget, changeOrigin: true },
         '/health': { target: proxyTarget, changeOrigin: true },
-        '/webhooks': { target: proxyTarget, changeOrigin: true },
       }
     : {};
 

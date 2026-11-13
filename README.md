@@ -28,9 +28,11 @@ API 版本用 **2026-07**（环境变量 `WEBHOOK_API_VERSION`）。
 
 项目按 handle 解析商品 UUID，**不必**再配 `PROTECTION_PRODUCT_ID`。商品需可售（库存/可购买），否则加车会 406。
 
+**对接方负责：** 按店铺注入/更新该 handle 的保障商品（图、variants），以及在店匠侧注册 Webhook。本仓库不提供商品写入接口，也没有 Webhook 接收或管理页。
+
 ### Scopes（权限）
 
-创建私有应用时勾选下面这些。后台中文名可能是「商品 / 自定义代码 / 事件订阅」，以 **scope 字面量** 为准。
+创建私有应用时勾选下面这些。后台中文名可能是「商品 / 自定义代码」，以 **scope 字面量** 为准。
 
 **必选（Widget + `/admin` 注册脚本）**
 
@@ -42,15 +44,9 @@ API 版本用 **2026-07**（环境变量 `WEBHOOK_API_VERSION`）。
 
 没有 `write_script_tags` 时，拉价档可能仍正常，但 `/admin` 注册脚本会 **403**（之前缺「自定义代码」就是这个）。
 
-**可选（只用 `/admin` 管 Webhook 时再开）**
-
-| Scope | 说明 |
-|---|---|
-| 后台 **Webhook / 事件订阅 / 通知** 读写 | `GET/POST/PUT/DELETE /openapi/2026-07/webhooks`。CLI 的 `supported_scopes` 里没有单独的 `read_webhook` 字面量，以商家后台这一项为准。 |
-
 **不要勾（本项目用不到）**
 
-`write_product`、`read_order` / `write_order`、`read_customer`、主题、财务等。Widget 加车走的是**店面** `/api/cart`，不消耗订单/顾客 OpenAPI。
+`write_product`、Webhook / 事件订阅、`read_order` / `write_order`、`read_customer`、主题、财务等。Widget 加车走店面 `/api/cart`。保障商品注入/更新、Webhook 注册由**对接方**完成，不走本仓库。
 
 最小集合（复制）：
 
@@ -92,7 +88,7 @@ npm run dev
 开发服务：`http://localhost:8787/`
 
 - `/` 状态页（health、handle、价档数量）
-- `/admin` Script Tag / Webhook 管理（本地无口令；**线上必须**走 Zero Trust `/one/access-controls/apps`）
+- `/admin` 仅 Script Tag 管理（本地无口令；**线上必须**走 Zero Trust `/one/access-controls/apps`）
 - `/widget.js` 店面脚本
 - `/widget/config` 公开配置（不含 TOKEN）
 
@@ -135,7 +131,7 @@ Functions：仓库根目录 `functions/`（不要删）。
 
 ### 线上必须加 Cloudflare Access（否则谁都能看、都能改）
 
-本项目 **`/admin` 没有应用口令**。Pages 一旦公开，任何人都能打开管理页、注册/删除 Script Tag 和 Webhook，Functions 会用你的 `TOKEN` 改店铺。
+本项目 **`/admin` 没有应用口令**。Pages 一旦公开，任何人都能打开管理页并注册/删除 Script Tag，Functions 会用你的 `TOKEN` 改店铺。
 
 **上线后必须**在 Zero Trust 里加 Access Application，再开站点：
 
@@ -148,11 +144,10 @@ Functions：仓库根目录 `functions/`（不要删）。
 | 路径 | Access | 原因 |
 |---|---|---|
 | `/admin` | **必须保护** | 管理 UI |
-| `/admin/api*` | **必须保护** | 改 Script Tag / Webhook 的接口 |
+| `/admin/api*` | **必须保护** | 改 Script Tag 的接口 |
 | `/` | 建议保护 | 状态页会露出 productId、handle、价档数量 |
 | `/widget.js` | **不要保护** | 店面 Script Tag 要公开拉脚本 |
 | `/widget/config` | **不要保护** | widget 算费要用 |
-| `/webhooks` | **不要保护** | 店匠服务器 POST 回调，过不了登录页 |
 
 5. Policy：只允许你的邮箱 / 团队（Google、One-time PIN 等）。未登录访问 `/admin` 应跳到 Cloudflare 登录，而不是直接进页。
 6. 加完 Access 再把 Script Tag 指到线上 `widget.js`。没加 Access 等于把店铺 Token 能力暴露在公网。

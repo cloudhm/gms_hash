@@ -154,6 +154,58 @@
     );
   }
 
+  const SUMMARY_SEL =
+    '#cart-summary-render, [id*="cart-summary"], [id*="CartDrawer"], [id*="cart-drawer"], .cart-footer, [class*="cart-summary"], [class*="cart-footer"], [class*="CartFooter"], [class*="drawer"], [class*="Drawer"], [class*="mini-cart"], [class*="minicart"], [class*="MiniCart"], [class*="sidecart"], [class*="cart-popup"], [class*="CartPopup"], [role="dialog"]';
+
+  function summaryRoot(checkout) {
+    return (checkout && checkout.closest(SUMMARY_SEL)) || (checkout && checkout.parentElement) || document.body;
+  }
+
+  function totalLineText(text) {
+    const t = String(text || '').replace(/\s+/g, ' ').trim();
+    if (!t || t.length > 80) return false;
+    if (/sub[\s-]?total/i.test(t)) return false;
+    return /^(total|总计|合计)\s*:?\s*(\$|USD|US\$)?\s*[\d,]*/i.test(t);
+  }
+
+  function isTotalRow(el, checkout) {
+    if (!el || el === checkout || el.closest('.sss-widget')) return false;
+    if (checkout && (el === checkout || el.contains(checkout))) return false;
+    if (el.querySelector && el.querySelector('button, a[href*="checkout"], .sss-widget')) return false;
+    return totalLineText(el.textContent);
+  }
+
+  function expandTotalRow(el, root, checkout) {
+    let row = el;
+    while (row.parentElement && row.parentElement !== root) {
+      const parent = row.parentElement;
+      if (checkout && parent.contains(checkout)) break;
+      if (!totalLineText(parent.textContent)) break;
+      row = parent;
+    }
+    return row;
+  }
+
+  function findInsertTarget(checkout) {
+    const root = summaryRoot(checkout);
+    let best = null;
+    const nodes = root.querySelectorAll('div, tr, li, p, dl, dt, dd, section, span, strong, b, em');
+    for (const el of nodes) {
+      if (!isTotalRow(el, checkout)) continue;
+      const pos = el.compareDocumentPosition(checkout);
+      if (pos & Node.DOCUMENT_POSITION_FOLLOWING) best = el;
+    }
+    return best ? expandTotalRow(best, root, checkout) : checkout;
+  }
+
+  function placeWidget(widget, checkout) {
+    if (!widget || !checkout) return;
+    const target = findInsertTarget(checkout);
+    if (!target || !target.parentNode || target === widget) return;
+    if (widget.nextElementSibling === target) return;
+    target.parentNode.insertBefore(widget, target);
+  }
+
   function cartRoot() {
     return (window.SHOPLAZZA && window.SHOPLAZZA.routes && window.SHOPLAZZA.routes.root) || '';
   }
@@ -631,8 +683,7 @@
       '<p class="sss-powered">Powered By <strong>GOOVAL</strong></p>' +
       '<div class="sss-error" hidden>Unable to add protection.</div>';
 
-    const parent = checkout.parentNode;
-    parent.insertBefore(widget, checkout);
+    placeWidget(widget, checkout);
 
     widget.querySelector('.sss-check').addEventListener('click', (e) => {
       e.preventDefault();
@@ -660,6 +711,11 @@
   function scanAndMount() {
     if (!cfg) return;
     findAllCheckoutEls().forEach((el) => mount(el));
+    document.querySelectorAll('[data-sss-bound]').forEach((checkout) => {
+      const root = summaryRoot(checkout);
+      const widget = root && root.querySelector('.sss-widget');
+      if (widget) placeWidget(widget, checkout);
+    });
   }
 
   window.syncCart = syncCart;

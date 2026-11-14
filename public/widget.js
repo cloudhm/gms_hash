@@ -42,6 +42,22 @@
     return '$' + money(amount).toFixed(2) + ' USD';
   }
 
+  function parseMoney(text) {
+    const m = String(text || '')
+      .replace(/,/g, '')
+      .match(/(\d+(?:\.\d+)?)/);
+    return m ? money(m[1]) : NaN;
+  }
+
+  function writeMoney(el, next) {
+    const raw = el.textContent || '';
+    const hit = raw.match(/(\d[\d,]*(?:\.\d+)?)/);
+    const decimals = hit && hit[0].includes('.') ? (hit[0].split('.')[1] || '').length : 2;
+    const num = money(next).toFixed(decimals > 0 ? decimals : 2);
+    if (hit) el.textContent = raw.replace(/\d[\d,]*(?:\.\d+)?/, num);
+    else el.textContent = num;
+  }
+
   function isVisible(el) {
     if (!el || !el.isConnected) return false;
     const style = window.getComputedStyle(el);
@@ -198,10 +214,25 @@
     return best ? expandTotalRow(best, root, checkout) : checkout;
   }
 
+  function findAmountNode(row) {
+    const els = [row, ...row.querySelectorAll('*')];
+    let hit = null;
+    for (const el of els) {
+      if (el.closest && el.closest('.sss-widget')) continue;
+      if (el.children && el.children.length) continue;
+      const t = (el.textContent || '').trim();
+      if (t.length < 40 && /\$?\s*\d[\d,]*(\.\d+)?/.test(t) && !/^(total|总计|合计)/i.test(t)) {
+        hit = el;
+      }
+    }
+    return hit;
+  }
+
   function placeWidget(widget, checkout) {
     if (!widget || !checkout) return;
     const target = findInsertTarget(checkout);
     if (!target || !target.parentNode || target === widget) return;
+    if (target !== checkout) target.setAttribute('data-sss-total-row', '1');
     if (widget.nextElementSibling === target) return;
     target.parentNode.insertBefore(widget, target);
   }
@@ -223,6 +254,7 @@
   let lastPicked = null;
   let passThroughCheckout = false;
   let wantProtection = true;
+  let paintedFee = 0;
 
   function getCsrfToken() {
     const entry = document.cookie.split('; ').find((item) => item.startsWith('CSRF-TOKEN='));
@@ -504,12 +536,26 @@
     });
   }
 
+  function paintTotal() {
+    const fee = wantProtection && lastPicked?.variant ? money(lastPicked.variant.price) : 0;
+    document.querySelectorAll('[data-sss-total-row]').forEach((row) => {
+      const amtEl = findAmountNode(row);
+      if (!amtEl) return;
+      const shown = parseMoney(amtEl.textContent);
+      if (!Number.isFinite(shown)) return;
+      const base = Math.round((shown - paintedFee) * 100) / 100;
+      writeMoney(amtEl, Math.round((base + fee) * 100) / 100);
+    });
+    paintedFee = fee;
+  }
+
   function syncWidgetState() {
     document.querySelectorAll('.sss-widget').forEach((el) => {
       el.classList.toggle('is-on', wantProtection);
       const box = el.querySelector('.sss-check');
       if (box) box.setAttribute('aria-checked', wantProtection ? 'true' : 'false');
     });
+    paintTotal();
   }
 
   function updatePriceDisplay(picked) {
@@ -540,6 +586,7 @@
     });
     lastSubtotal = sub;
     lastPicked = picked;
+    paintedFee = 0;
     updatePriceDisplay(picked);
     return { cart, picked };
   }

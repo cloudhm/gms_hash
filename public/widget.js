@@ -39,7 +39,7 @@
   }
 
   function formatPrice(amount) {
-    return '$' + money(amount).toFixed(2);
+    return '$' + money(amount).toFixed(2) + ' USD';
   }
 
   function isVisible(el) {
@@ -170,6 +170,7 @@
   let lastSubtotal = 0;
   let lastPicked = null;
   let passThroughCheckout = false;
+  let wantProtection = true;
 
   function getCsrfToken() {
     const entry = document.cookie.split('; ').find((item) => item.startsWith('CSRF-TOKEN='));
@@ -360,57 +361,88 @@
     style.id = 'sss-widget-styles';
     style.textContent = `
 .sss-widget {
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
-  padding: 12px 14px;
-  margin-bottom: 12px;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0 0 12px;
+  padding: 10px 12px 9px;
+  border: 1px solid #e6eee6;
+  border-radius: 12px;
+  background: #fff;
   font-family: inherit;
-  font-size: 14px;
-  line-height: 1.4;
-  color: inherit;
-  background: #fafafa;
+  color: #1a1a1a;
+  text-align: left;
 }
+.sss-widget[hidden] { display: none !important; }
+.sss-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sss-check {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  border-radius: 50%;
+  border: 2px solid #2d6a4f;
+  background: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #fff;
+  padding: 0;
+}
+.sss-widget.is-on .sss-check {
+  background: #1b4332;
+  border-color: #1b4332;
+}
+.sss-check svg { display: none; width: 10px; height: 10px; }
+.sss-widget.is-on .sss-check svg { display: block; }
 .sss-title {
-  font-weight: 600;
-  margin-bottom: 8px;
-}
-.sss-price {
-  color: #333;
-}
-.sss-error {
-  margin-top: 8px;
-  color: #b00020;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
   font-size: 13px;
+  font-weight: 400;
+  line-height: 1.35;
+  color: #111;
 }
-.sss-without {
-  display: block;
-  margin-top: 10px;
-  font-size: 13px;
-  text-align: center;
+.sss-name { font-weight: 700; }
+.sss-info {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid #888;
   color: #666;
+  font-size: 10px;
+  line-height: 12px;
+  text-align: center;
+  cursor: help;
+  font-weight: 600;
 }
-.sss-without:hover {
-  color: #333;
+.sss-desc {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #222;
+}
+.sss-powered {
+  margin: 6px 0 0;
+  font-size: 10px;
+  color: #888;
+}
+.sss-powered strong { color: #3C5C38; font-weight: 700; }
+.sss-error {
+  margin: 8px 0 0;
+  color: #b00020;
+  font-size: 12px;
 }
 `;
     document.head.appendChild(style);
-  }
-
-  function payableTotal(withProtection, subtotal, picked) {
-    const fee = withProtection && picked?.variant ? money(picked.variant.price) : 0;
-    return Math.round((money(subtotal) + fee) * 100) / 100;
-  }
-
-  function updateCheckoutLabel(subtotal, picked) {
-    const sub = subtotal == null ? lastSubtotal : subtotal;
-    const pick = picked === undefined ? lastPicked : picked;
-    const total = payableTotal(true, sub, pick);
-    document.querySelectorAll('[data-sss-bound]').forEach((el) => {
-      if (!el.dataset.sssOriginalText) {
-        el.dataset.sssOriginalText = (el.textContent || '').trim();
-      }
-      el.textContent = el.dataset.sssOriginalText + '  ' + formatPrice(total);
-    });
   }
 
   function setErrorVisible(show, message) {
@@ -420,16 +452,23 @@
     });
   }
 
-  function updatePriceDisplay(picked) {
-    document.querySelectorAll('.sss-widget .sss-price').forEach((el) => {
-      if (picked?.variant) {
-        el.textContent = formatPrice(picked.variant.price);
-        el.style.display = '';
-      } else {
-        el.textContent = '';
-        el.style.display = 'none';
-      }
+  function syncWidgetState() {
+    document.querySelectorAll('.sss-widget').forEach((el) => {
+      el.classList.toggle('is-on', wantProtection);
+      const box = el.querySelector('.sss-check');
+      if (box) box.setAttribute('aria-checked', wantProtection ? 'true' : 'false');
     });
+  }
+
+  function updatePriceDisplay(picked) {
+    const fee = picked?.variant ? formatPrice(picked.variant.price) : '';
+    document.querySelectorAll('.sss-widget').forEach((el) => {
+      const has = !!picked?.variant;
+      el.hidden = !has;
+      const priceEl = el.querySelector('.sss-fee');
+      if (priceEl) priceEl.textContent = fee;
+    });
+    syncWidgetState();
   }
 
   async function render() {
@@ -450,7 +489,6 @@
     lastSubtotal = sub;
     lastPicked = picked;
     updatePriceDisplay(picked);
-    updateCheckoutLabel(sub, picked);
     return { cart, picked };
   }
 
@@ -550,7 +588,7 @@
   }
 
   async function goCheckout(options) {
-    const want = !!(options && options.withProtection);
+    const want = options && 'withProtection' in options ? !!options.withProtection : wantProtection;
     const button = (options && options.button) || checkoutEl;
     setErrorVisible(false);
     try {
@@ -575,31 +613,33 @@
     if (!checkout || checkout.dataset.sssBound) return;
     checkoutEl = checkout;
     checkout.dataset.sssBound = '1';
-    if (!checkout.dataset.sssOriginalText) {
-      checkout.dataset.sssOriginalText = (checkout.textContent || '').trim();
-    }
 
     injectStyles();
 
     const widget = document.createElement('div');
-    widget.className = 'sss-widget';
+    widget.className = 'sss-widget is-on';
     widget.innerHTML =
-      '<div class="sss-title">Shipping Secure Service</div>' +
-      '<div class="sss-price"></div>' +
+      '<div class="sss-head">' +
+      '<button type="button" class="sss-check" role="checkbox" aria-checked="true" aria-label="Shipping Secure Service">' +
+      '<svg viewBox="0 0 12 12" aria-hidden="true"><path fill="currentColor" d="M4.7 9.2 1.8 6.3l1.1-1.1 1.8 1.8 4.4-4.4 1.1 1.1z"/></svg>' +
+      '</button>' +
+      '<div class="sss-title">' +
+      '<span><span class="sss-name">Shipping Secure Service</span> for <span class="sss-fee"></span></span>' +
+      '<span class="sss-info" title="Shipping compensation for lost, damaged, or delayed packages, including theft/porch piracy.">?</span>' +
+      '</div></div>' +
+      '<p class="sss-desc">Shipping compensation for lost, damaged, or delayed packages, including theft/porch piracy.</p>' +
+      '<p class="sss-powered">Powered By <strong>GOOVAL</strong></p>' +
       '<div class="sss-error" hidden>Unable to add protection.</div>';
-
-    const without = document.createElement('a');
-    without.href = '#';
-    without.className = 'sss-without';
-    without.textContent = 'Checkout without protection';
 
     const parent = checkout.parentNode;
     parent.insertBefore(widget, checkout);
-    if (checkout.nextSibling) {
-      parent.insertBefore(without, checkout.nextSibling);
-    } else {
-      parent.appendChild(without);
-    }
+
+    widget.querySelector('.sss-check').addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      wantProtection = !wantProtection;
+      syncWidgetState();
+    });
 
     checkout.addEventListener(
       'click',
@@ -608,15 +648,10 @@
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
-        goCheckout({ withProtection: true, button: checkout });
+        goCheckout({ withProtection: wantProtection, button: checkout });
       },
       true,
     );
-
-    without.addEventListener('click', (e) => {
-      e.preventDefault();
-      goCheckout({ withProtection: false, button: checkout });
-    });
 
     mounted = true;
     render();

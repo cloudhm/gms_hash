@@ -255,6 +255,10 @@
   let passThroughCheckout = false;
   let wantProtection = true;
   let paintedFee = 0;
+  let publicBase = '';
+  let infoModalReady = false;
+  let lastInfoModalTrigger = null;
+  let modalStylesPromise = null;
 
   function getCsrfToken() {
     const entry = document.cookie.split('; ').find((item) => item.startsWith('CSRF-TOKEN='));
@@ -505,9 +509,13 @@
   font-size: 10px;
   line-height: 12px;
   text-align: center;
-  cursor: help;
+  cursor: pointer;
   font-weight: 600;
+  background: transparent;
+  padding: 0;
+  font-family: inherit;
 }
+.sss-info:hover { border-color: #555; color: #333; }
 .sss-desc {
   margin: 4px 0 0;
   font-size: 12px;
@@ -527,6 +535,222 @@
 }
 `;
     document.head.appendChild(style);
+  }
+
+  function injectModalStyles() {
+    if (modalStylesPromise) return modalStylesPromise;
+    const existing = document.getElementById('sss-wf-modal-css');
+    if (existing) {
+      modalStylesPromise = Promise.resolve();
+      return modalStylesPromise;
+    }
+    const base = publicBase || (document.currentScript?.src || '').replace(/\/widget\.js.*$/, '');
+    if (!base) {
+      modalStylesPromise = Promise.resolve();
+      return modalStylesPromise;
+    }
+    const link = document.createElement('link');
+    link.id = 'sss-wf-modal-css';
+    link.rel = 'stylesheet';
+    link.href = base.replace(/\/$/, '') + '/wf-modal.css';
+    modalStylesPromise = new Promise((resolve) => {
+      const done = () => resolve();
+      link.addEventListener('load', done, { once: true });
+      link.addEventListener('error', done, { once: true });
+      setTimeout(done, 4000);
+    });
+    document.head.appendChild(link);
+    if (!document.getElementById('sss-wf-modal-guard')) {
+      const guard = document.createElement('style');
+      guard.id = 'sss-wf-modal-guard';
+      guard.textContent =
+        '.wf-modal-container-v3 .wf-cta-wrap{display:flex!important;justify-content:center!important;width:100%!important}' +
+        '.wf-modal-container-v3 button.wf-button-v3{display:flex!important;flex-flow:row nowrap!important;white-space:nowrap!important;max-width:min(343px,100%)!important;margin-left:auto!important;margin-right:auto!important}' +
+        '.wf-modal-container-v3 button.wf-button-v3 .wf-cta-label,.wf-modal-container-v3 button.wf-button-v3 .wf-cta-price{display:inline!important;white-space:nowrap!important;width:auto!important;flex:0 0 auto!important}';
+      document.head.appendChild(guard);
+    }
+    return modalStylesPromise;
+  }
+
+  function isInfoModalOpen() {
+    const dlg = document.getElementById('sss-info-modal');
+    return !!(dlg && dlg.open);
+  }
+
+  function isSssModalMutationNode(node) {
+    if (!(node instanceof Element)) return false;
+    if (node.id === 'sss-info-modal') return true;
+    return !!node.closest('#sss-info-modal');
+  }
+
+  function lockScrollForModal() {
+    const gap = Math.max(0, window.innerWidth - document.documentElement.clientWidth);
+    if (gap > 0) document.documentElement.style.setProperty('--sss-scrollbar-gw', gap + 'px');
+    else document.documentElement.style.removeProperty('--sss-scrollbar-gw');
+  }
+
+  function unlockScrollForModal() {
+    document.documentElement.style.removeProperty('--sss-scrollbar-gw');
+  }
+
+  function preloadInfoModalImages(dlg) {
+    if (!dlg) return;
+    dlg.querySelectorAll('img[src]').forEach((img) => {
+      if (img.complete) return;
+      const pre = new Image();
+      pre.decoding = 'async';
+      pre.src = img.src;
+    });
+  }
+
+  function scheduleInfoModalPreload() {
+    const run = () => {
+      injectModalStyles();
+      ensureInfoModal();
+      const dlg = document.getElementById('sss-info-modal');
+      preloadInfoModalImages(dlg);
+    };
+    if (typeof requestIdleCallback === 'function') requestIdleCallback(run, { timeout: 2000 });
+    else setTimeout(run, 400);
+  }
+
+  function wfAsset(file) {
+    const base = publicBase || (document.currentScript?.src || '').replace(/\/widget\.js.*$/, '');
+    return (base ? base.replace(/\/$/, '') : '') + '/wf/' + file;
+  }
+
+  function formatFeeShort(amount) {
+    return '$' + money(amount).toFixed(2);
+  }
+
+  function ensureInfoModal() {
+    if (document.getElementById('sss-info-modal')) {
+      infoModalReady = true;
+      return;
+    }
+    injectModalStyles();
+    const dlg = document.createElement('dialog');
+    dlg.id = 'sss-info-modal';
+    dlg.className = 'wf-modal-container-v3';
+    dlg.setAttribute('aria-labelledby', 'sss-wf-modal-title');
+    dlg.innerHTML =
+      '<div class="wf-modal-v3">' +
+      '<button type="button" class="wf-modal-close-v3" aria-label="Close" data-wf-modal-close="">' +
+      '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
+      '<path d="M1 1L13 13M13 1L1 13" fill="none" stroke="#2E4A28" stroke-width="2" stroke-linecap="round"></path>' +
+      '</svg></button>' +
+      '<div class="wf-modal-header">' +
+      '<img class="wf-modal-hero" src="' +
+      wfAsset('hero.jpg') +
+      '" width="1459" height="600" alt="GOOVAL shipping secure service — more peace of mind for every order">' +
+      '</div>' +
+      '<div class="wf-modal-content-section">' +
+      '<div class="wf-benefits-panel">' +
+      '<div class="wf-benefits-title" id="sss-wf-modal-title">' +
+      '<img src="' +
+      wfAsset('ic-shield.png') +
+      '" width="165" height="192" alt="">' +
+      '<span>Shipping Secure Benefits</span></div>' +
+      '<div class="wf-benefits-grid">' +
+      '<div class="wf-benefit-item"><img src="' +
+      wfAsset('ic-lost.png') +
+      '" alt=""><span>Lost<br>in Transit</span></div>' +
+      '<div class="wf-benefit-item"><img src="' +
+      wfAsset('ic-damaged.png') +
+      '" alt=""><span>Damaged<br>in Transit</span></div>' +
+      '<div class="wf-benefit-item"><img src="' +
+      wfAsset('ic-delay.png') +
+      '" alt=""><span>Delivery<br>Delay</span></div>' +
+      '<div class="wf-benefit-item"><img src="' +
+      wfAsset('ic-theft.png') +
+      '" alt=""><span>Theft/<br>Porch Piracy</span></div>' +
+      '</div></div>' +
+      '<div class="wf-highlight-row">' +
+      '<div class="wf-highlight wf-highlight--green">' +
+      '<img src="' +
+      wfAsset('ic-rapid.png') +
+      '" alt="">' +
+      '<div class="wf-highlight-text"><div class="wf-highlight-title">Rapid Resolution</div>' +
+      '<div class="wf-highlight-desc">Quick and easy claims resolution</div></div></div>' +
+      '<div class="wf-highlight wf-highlight--cream">' +
+      '<img src="' +
+      wfAsset('ic-support.png') +
+      '" alt="">' +
+      '<div class="wf-highlight-text"><div class="wf-highlight-title">24/7 Support</div>' +
+      '<div class="wf-highlight-desc">Fast, reliable help around the clock</div></div></div>' +
+      '</div>' +
+      '<div class="wf-cta-wrap">' +
+      '<button type="button" class="wf-button-v3" data-wf-modal-opt-in="">' +
+      '<span class="wf-cta-label">Add Shipping Secure Service Now</span>' +
+      '<span class="wf-cta-price" data-wf-modal-price="">$0.00</span></button></div>' +
+      '<div class="wf-no-need" role="button" tabindex="0" data-wf-modal-opt-out="">Continue Without Service Benefits</div>' +
+      '<div class="wf-modal-footer">' +
+      '<a href="https://www.gooval.io/privacy" target="_blank" rel="noopener" class="wf-modal-footer-link">Privacy Policy</a>' +
+      '<div class="wf-modal-footer-powered">Powered by <b>GOOVAL</b></div>' +
+      '<a href="https://www.gooval.io/terms" target="_blank" rel="noopener" class="wf-modal-footer-link">Terms of Service</a>' +
+      '</div></div></div>';
+    document.body.appendChild(dlg);
+    dlg.addEventListener('click', (e) => {
+      if (e.target === dlg) closeInfoModal();
+    });
+    dlg.querySelector('.wf-modal-v3').addEventListener('click', (e) => e.stopPropagation());
+    dlg.querySelector('[data-wf-modal-close]').addEventListener('click', closeInfoModal);
+    dlg.addEventListener('cancel', (e) => {
+      e.preventDefault();
+      closeInfoModal();
+    });
+    dlg.querySelector('[data-wf-modal-opt-in]').addEventListener('click', () => {
+      checkoutFromModal(true);
+    });
+    const optOut = dlg.querySelector('[data-wf-modal-opt-out]');
+    optOut.addEventListener('click', () => {
+      checkoutFromModal(false);
+    });
+    optOut.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        checkoutFromModal(false);
+      }
+    });
+    preloadInfoModalImages(dlg);
+    infoModalReady = true;
+  }
+
+  async function openInfoModal(trigger) {
+    if (trigger instanceof HTMLElement) lastInfoModalTrigger = trigger;
+    injectStyles();
+    await injectModalStyles();
+    ensureInfoModal();
+    const dlg = document.getElementById('sss-info-modal');
+    if (!dlg) return;
+    const price = lastPicked?.variant ? formatFeeShort(lastPicked.variant.price) : '';
+    const priceEl = dlg.querySelector('[data-wf-modal-price]');
+    if (priceEl) priceEl.textContent = price;
+    const content = dlg.querySelector('.wf-modal-content-section');
+    if (content) content.scrollTop = 0;
+    lockScrollForModal();
+    if (typeof dlg.showModal === 'function') {
+      if (dlg.open) dlg.close();
+      dlg.showModal();
+    } else {
+      dlg.setAttribute('open', 'open');
+    }
+  }
+
+  function closeInfoModal() {
+    const dlg = document.getElementById('sss-info-modal');
+    if (!dlg) return;
+    if (typeof dlg.close === 'function') dlg.close();
+    else dlg.removeAttribute('open');
+    unlockScrollForModal();
+    const back = lastInfoModalTrigger;
+    if (back && back.isConnected && typeof back.focus === 'function') {
+      try {
+        back.focus({ preventScroll: true });
+      } catch {
+        back.focus();
+      }
+    }
   }
 
   function setErrorVisible(show, message) {
@@ -698,6 +922,13 @@
     }
   }
 
+  async function checkoutFromModal(withProtection) {
+    wantProtection = !!withProtection;
+    syncWidgetState();
+    closeInfoModal();
+    await goCheckout({ withProtection, button: checkoutEl });
+  }
+
   function onCartEvent() {
     if (syncInFlight || passThroughCheckout) {
       render();
@@ -724,7 +955,7 @@
       '</button>' +
       '<div class="sss-title">' +
       '<span><span class="sss-name">Shipping Secure Service</span> for <span class="sss-fee"></span></span>' +
-      '<span class="sss-info" title="Shipping compensation for lost, damaged, or delayed packages, including theft/porch piracy.">?</span>' +
+      '<button type="button" class="sss-info" aria-label="Shipping Secure Service benefits">?</button>' +
       '</div></div>' +
       '<p class="sss-desc">Shipping compensation for lost, damaged, or delayed packages, including theft/porch piracy.</p>' +
       '<p class="sss-powered">Powered By <strong>GOOVAL</strong></p>' +
@@ -737,6 +968,12 @@
       e.stopPropagation();
       wantProtection = !wantProtection;
       syncWidgetState();
+    });
+
+    widget.querySelector('.sss-info').addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      openInfoModal(e.currentTarget);
     });
 
     checkout.addEventListener(
@@ -752,11 +989,13 @@
     );
 
     mounted = true;
+    scheduleInfoModalPreload();
     render();
   }
 
   function scanAndMount() {
     if (!cfg) return;
+    if (isInfoModalOpen()) return;
     findAllCheckoutEls().forEach((el) => mount(el));
     document.querySelectorAll('[data-sss-bound]').forEach((checkout) => {
       const root = summaryRoot(checkout);
@@ -771,6 +1010,7 @@
   (async function bootstrap() {
     const src = document.currentScript && document.currentScript.src;
     const base = src ? src.replace(/\/widget\.js.*$/, '') : '';
+    publicBase = base;
     try {
       const res = await fetch(base + '/widget/config');
       if (!res.ok) throw new Error('config');
@@ -786,7 +1026,11 @@
         setTimeout(scanAndMount, 200);
         setTimeout(scanAndMount, 700);
       });
-      new MutationObserver(() => scanAndMount()).observe(document.documentElement, {
+      new MutationObserver((mutations) => {
+        const relevant = mutations.some((m) => !isSssModalMutationNode(m.target));
+        if (!relevant) return;
+        scanAndMount();
+      }).observe(document.documentElement, {
         childList: true,
         subtree: true,
         attributes: true,

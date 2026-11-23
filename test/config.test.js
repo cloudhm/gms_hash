@@ -47,5 +47,14 @@ test('throws when PROTECTION_HANDLE missing', () => {
 test('does not require PROTECTION_PRODUCT_ID', () => {
   const c = loadConfig(base);
   assert.equal(c.protectionHandle, 'gwofy-shipping-protection-qaqwer');
-  assert.equal(c.protectionProductId, undefined);
+});
+
+test('allows API_DOMAIN without PROTECTION_RATE env', () => {
+  const env = { ...base };
+  delete env.PROTECTION_RATE;
+  delete env.PROTECTION_MAX_COVERED;
+  env.API_DOMAIN = 'https://api.example.com';
+  const c = loadConfig(env);
+  assert.equal(c.apiDomain, 'https://api.example.com');
+  assert.equal(c.rate, 0);
 });

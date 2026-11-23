@@ -20,4 +20,8 @@ body {
   margin: 24px auto;
   padding: 0 16px 40px;
 }
+.layout:has(.docs-layout) {
+  max-width: none;
+  margin: 24px 16px;
+}
 </style>

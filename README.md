@@ -32,28 +32,29 @@ API 版本用 **2026-07**（环境变量 `WEBHOOK_API_VERSION`）。
 
 ### Scopes（权限）
 
-创建私有应用时勾选下面这些。后台中文名可能是「商品 / 自定义代码」，以 **scope 字面量** 为准。
+创建私有应用时在 **接口调用权限** 中按下表选择（中文后台名称可能略有差异，以 **scope 字面量** 为准）。
 
-**必选（同一枚 Private App Token：Widget 读商品 + 对接方写商品 + `/admin` 脚本）**
-
-| Scope | 后台常见名称 | 谁用 | 用途 |
+| 后台名称 | 应选择 | Scope | 用途 |
 |---|---|---|---|
-| `read_product` | 商品 · 查看 | 本仓库 Functions | 按 handle 解析保障商品，拉 variants |
-| `write_product` | 商品 · 编辑 | **对接方** | 给接入店铺 **新建 / 更新** 保障商品（handle、图、价档 variants） |
-| `read_script_tags` | 自定义代码 · 查看 | 本仓库 `/admin` | 列出 Script Tag |
-| `write_script_tags` | 自定义代码 · 编辑 | 本仓库 `/admin` | 注册、改 src、删除 `widget.js` |
+| 商品权限 | **读取和写入** | `read_product`、`write_product` | Functions 读保障价档；对接方维护保障商品 |
+| 订单权限 | **读取** | `read_order` | 对接侧读订单；本仓库 Widget **不**写订单 |
+| 自定义代码权限 | **读取和写入** | `read_script_tags`、`write_script_tags` | `/admin` 管理 Script Tag |
+| 店铺信息权限 | **读取** | `read_shop` | 读店铺信息 |
+| 购物车转换 | **读取和写入** | `read_cart_transform`、`write_cart_transform` | 购物车转换相关 OpenAPI |
 
-`write_product` 必须开：对接方用这枚 Token 调 OpenAPI 建品/改品；本仓库不实现商品写入接口，但仍要和 Widget 共用同一私有应用。没有 `write_script_tags` 时 `/admin` 注册脚本会 **403**。
+`write_product`、`write_script_tags` 缺任一时，对接建品或 `/admin` 注册脚本会 **403**。
 
-**不要勾（本项目与对接约定都不走这里）**
+**不要勾（本期未用）**
 
-Webhook / 事件订阅、`read_order` / `write_order`、`read_customer`、主题、财务等。Widget 加车走店面 `/api/cart`。Webhook 由对接方在店匠侧自行注册。
+`write_order`、客户、主题、财务、专辑等未在上述表中的权限。Widget 加车走店面 `/api/cart`。Webhook 由对接方在店匠侧自行注册。
 
 最小集合（复制）：
 
 ```
-read_product,write_product,read_script_tags,write_script_tags
+read_product,write_product,read_order,read_script_tags,write_script_tags,read_shop,read_cart_transform,write_cart_transform
 ```
+
+步骤截图与后台勾选说明见 [docs/shoplazza/private-app.md](./docs/shoplazza/private-app.md)。
 
 改过 scopes 后要 **重新生成 / 保存 Token**，旧 `TOKEN` 不会带上新权限。
 
@@ -65,17 +66,15 @@ read_product,write_product,read_script_tags,write_script_tags
 cp .env.example .env
 ```
 
-`.env` 必填：
+`.env` 结构与 [docs/shoplazza/environment-variables.md](./docs/shoplazza/environment-variables.md) 一致：
 
-```
-TOKEN=<后台复制的 Access Token>
-WEBHOOK_API_VERSION=2026-07
-PROTECTION_RATE=0.02
-PROTECTION_MAX_COVERED=2505
-SHOP_DOMAIN=<店铺 myshoplaza 域名>
-PUBLIC_BASE_URL=http://localhost:8787
-PROTECTION_HANDLE=gwofy-shipping-protection-qaqwer
-```
+- **第 1～4 项**与店匠 **私有 App 应用详情** 一致：`TOKEN`、`APP_UID`、`APP_SECRET`、`WEBHOOK_API_VERSION=2026-07`
+- **`API_DOMAIN`**：测试 `https://sp-test.gooval.io`，生产 `https://sp-prod.gooval.io`
+- **`SHOP_DOMAIN`**：店匠店铺域名（无 `https://`）
+- **`PUBLIC_BASE_URL`**：部署后可访问地址（本地可用 `http://localhost:8787` 或 ngrok HTTPS）
+- **`PROTECTION_HANDLE`**：GOOVAL 维护的保障商品 handle
+
+复制：`cp .env.example .env` 后按上表填写。
 
 用 ngrok 给店铺注入脚本时，把 `PUBLIC_BASE_URL` 改成 ngrok HTTPS 地址（无尾斜杠），并保证 `npm run dev` 的 `allowedHosts` 已开（当前 `vue.config.cjs` 为 `all`）。
 
@@ -88,6 +87,7 @@ npm run dev
 
 开发服务：`http://localhost:8787/`
 
+- `/docs` **店匠接入文档**（`docs/shoplazza` 同步渲染，含截图）
 - `/` 状态页（health、handle、价档数量）
 - `/admin` 仅 Script Tag 管理（本地无口令；**线上必须**走 Zero Trust `/one/access-controls/apps`）
 - `/widget.js` 店面脚本
@@ -110,6 +110,8 @@ npm run dev
 
 ## 4. 部署到 Cloudflare Pages
 
+**从 GitHub Fork 到自有 Cloudflare 的图文步骤：** [docs/shoplazza/deploy-cloudflare.md](./docs/shoplazza/deploy-cloudflare.md)（上游示例仓库 `github.com/cloudhm/gms_hash`）。
+
 构建：**`npm run build`**  
 输出目录：**`dist`**  
 Functions：仓库根目录 `functions/`（不要删）。
@@ -121,8 +123,7 @@ Functions：仓库根目录 `functions/`（不要删）。
 | Secret | `TOKEN` | 私有应用 Access Token |
 | Variable | `SHOP_DOMAIN` | `xxx.myshoplaza.com` |
 | Variable | `PROTECTION_HANDLE` | `gwofy-shipping-protection-qaqwer` |
-| Variable | `PROTECTION_RATE` | `0.02` |
-| Variable | `PROTECTION_MAX_COVERED` | `2505` |
+| Variable | `API_DOMAIN` | 测试 `https://sp-test.gooval.io` / 生产 `https://sp-prod.gooval.io` |
 | Variable | `WEBHOOK_API_VERSION` | `2026-07` |
 | Variable | `PUBLIC_BASE_URL` | 线上地址，如 `https://xxx.pages.dev`（无尾斜杠） |
 
@@ -130,43 +131,15 @@ Functions：仓库根目录 `functions/`（不要删）。
 
 改 Secrets 后重新部署一次。部署完成后把 Script Tag 的 `src` 改成 `https://你的域名/widget.js`。
 
-### 线上必须加 Cloudflare Access（否则谁都能看、都能改）
+### 线上必须加 Cloudflare One 访问控制（Zero Trust Access）
 
-本项目 **`/admin` 没有应用口令**。Pages 一旦公开，任何人都能打开管理页并注册/删除 Script Tag，Functions 会用你的 `TOKEN` 改店铺。
+部署后 **同一域名** 上既有 **公开** 的 `widget.js` / `/widget/config`，也有仅工作人员可用的 **`/admin`**（管理 Script Tag，背后用你的 `TOKEN`）。`/admin` **没有应用内口令**，须用 **One 面板** 配置 Access，否则公网任何人都可改 Script Tag。
 
-**上线后必须**在 Zero Trust 里加 Access Application，再开站点：
+**图文步骤、Policy、误配排查与检查清单：** [docs/shoplazza/cloudflare-access.md](./docs/shoplazza/cloudflare-access.md)
 
-1. 打开 Cloudflare **Zero Trust** 控制台：路径 **`/one/access-controls/apps`**  
-   （完整地址形如 `https://one.dash.cloudflare.com/<账号ID>/access-controls/apps`）
-2. **Add an application → Self-hosted**
-3. Application domain 选你的 Pages 域名（`xxx.pages.dev` 或自定义域）
-4. Application 用 **路径（path）** 限制，不要把整个 Pages 域名锁死。
+控制台路径：`/one/access-controls/apps`。要点：**Self-hosted + 按 Path 保护 `/admin*`，勿锁整域**；`widget.js` 与 `/widget/config` **不要** 加入 Access。
 
-| 路径 | Access | 原因 |
-|---|---|---|
-| `/admin` | **必须保护** | 管理 UI |
-| `/admin/api*` | **必须保护** | 改 Script Tag 的接口 |
-| `/` | 建议保护 | 状态页会露出 productId、handle、价档数量 |
-| `/widget.js` | **不要保护** | 店面 Script Tag 要公开拉脚本 |
-| `/widget/config` | **不要保护** | widget 算费要用 |
-
-5. Policy：只允许你的邮箱 / 团队（Google、One-time PIN 等）。未登录访问 `/admin` 应跳到 Cloudflare 登录，而不是直接进页。
-6. 加完 Access 再把 Script Tag 指到线上 `widget.js`。没加 Access 等于把店铺 Token 能力暴露在公网。
-
-本地 `npm run dev` 不走 Access，仅本机调试。
-
-#### Access 会不会影响店铺用的 JS？
-
-**按上面只锁 `/admin*` 时，不会。** 买家页通过 Script Tag 拉的是公开地址：
-
-- `{PUBLIC_BASE_URL}/widget.js`
-- `{PUBLIC_BASE_URL}/widget/config`
-
-买家没有 Cloudflare 登录态。若 Access Application 绑的是 **整个** `xxx.pages.dev`（没有 path），这两次请求会跳到 `cloudflareaccess.com`，购物车 Widget **挂不上**。
-
-正确做法：Self-hosted 应用填 **path**（例如 `/admin`、`/admin/api`），或单独建应用只覆盖管理路径；**不要**用一条「整域」规则盖住静态脚本。
-
-验证：无痕窗口打开店铺购物车，开发者工具里 `widget.js` / `widget/config` 应为 **200**，而不是 302 到 Access 登录页。
+本地 `npm run dev` 不走 Access。
 
 ---
 
@@ -175,7 +148,7 @@ Functions：仓库根目录 `functions/`（不要删）。
 1. Functions 用 `TOKEN` 按 `PROTECTION_HANDLE` 查商品，拉 variants。
 2. `GET /widget/config` 下发 `productId`、费率、价档（无密钥）。
 3. `widget.js` 等购物车行渲染后插入区块；结账时加一档保障变体再跳转。
-4. 保障费 = 非保障小计 × `PROTECTION_RATE`，向上取最近变体价，且不超过 `2505 × 费率`。
+4. 保障费 = 非保障小计 × `rate`（来自 GOOVAL `calcRate` 或 `PROTECTION_RATE`），向上取最近变体价，且不超过 `maxCovered × rate`。
 
 ---
 

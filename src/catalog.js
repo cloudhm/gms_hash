@@ -1,3 +1,18 @@
+import { fetchGwofyPricing } from './goovalAppConfig.js';
+
+async function resolvePricing(config) {
+  if (config.apiDomain) {
+    return fetchGwofyPricing({
+      apiDomain: config.apiDomain,
+      shopDomain: config.shopDomain,
+    });
+  }
+  if (config.rate > 0 && config.maxCovered > 0) {
+    return { rate: config.rate, maxCovered: config.maxCovered };
+  }
+  throw new Error('missing pricing: API_DOMAIN or PROTECTION_RATE/PROTECTION_MAX_COVERED');
+}
+
 function openapiHeaders(config) {
   return { 'Access-Token': config.token };
 }
@@ -38,18 +53,26 @@ export async function fetchVariants(config) {
 }
 
 export function createCatalog(config, loader = fetchVariants) {
-  let cache = null;
+  let variantCache = null;
   return {
     async getPublicConfig() {
-      if (!cache) cache = await loader(config);
-      const productId = cache.productId;
-      const variants = cache.variants || cache;
+      const [variantData, pricing] = await Promise.all([
+        variantCache
+          ? Promise.resolve(variantCache)
+          : loader(config).then((data) => {
+              variantCache = data;
+              return data;
+            }),
+        resolvePricing(config),
+      ]);
+      const { productId, variants } = variantData;
+      const { rate, maxCovered } = pricing;
       return {
         productId,
         handle: config.protectionHandle,
-        rate: config.rate,
-        maxCovered: config.maxCovered,
-        feeCap: config.feeCap,
+        rate,
+        maxCovered,
+        feeCap: Math.round(rate * maxCovered * 100) / 100,
         variants,
       };
     },

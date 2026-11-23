@@ -2,8 +2,7 @@
   <el-card>
     <template #header>
       <div class="hdr">
-        <span>Shipping Secure Service</span>
-        <el-button type="primary" link @click="() => openAdmin()">管理</el-button>
+        <span>GMS HASH</span>
       </div>
     </template>
     <p class="hint">这是私有 App 状态页（Vue + Cloudflare Pages），不是店匠后台。</p>
@@ -20,20 +19,21 @@
     </el-descriptions>
     <el-alert v-if="error" class="gap" type="error" :title="error" show-icon :closable="false" />
     <p class="links">
+      <a href="/docs">接入文档</a>
+      ·
       <a href="/health">/health</a>
       ·
       <a href="/widget.js">/widget.js</a>
       ·
       <a href="/widget/config">/widget/config</a>
       ·
-      <a href="/admin" @click.prevent="() => openAdmin()">/admin</a>
+      <a href="/admin">/admin</a>
     </p>
   </el-card>
 </template>
 
 <script setup>
 import { onMounted, ref } from 'vue';
-import { openAdmin } from '../openAdmin.js';
 
 const health = ref('…');
 const cfg = ref({});

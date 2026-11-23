@@ -1,9 +1,12 @@
 {
-  "name": "shipping-secure-service",
+  "name": "gms-hash",
   "private": true,
   "type": "module",
   "scripts": {
     "test": "node --test",
+    "sync-docs": "node scripts/sync-shoplazza-docs.mjs",
+    "predev": "npm run sync-docs",
+    "prebuild": "npm run sync-docs",
     "dev": "vue-cli-service serve",
     "build": "vue-cli-service build",
     "start": "vue-cli-service serve",
@@ -11,6 +14,7 @@
   },
   "dependencies": {
     "element-plus": "^2.14.8",
+    "marked": "^15.0.12",
     "vue": "^3.5.45",
     "vue-router": "^4.6.4"
   },

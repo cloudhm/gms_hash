@@ -60,7 +60,16 @@ module.exports = defineConfig({
     port: 8787,
     allowedHosts: 'all',
     proxy,
+    historyApiFallback: true,
     setupMiddlewares(middlewares, devServer) {
+      try {
+        require('child_process').execSync('node scripts/sync-shoplazza-docs.mjs', {
+          cwd: __dirname,
+          stdio: 'ignore',
+        });
+      } catch {
+        /* sync optional */
+      }
       if (!Object.keys(proxy).length) {
         const env = { ...fileEnv, ...process.env };
         middlewares.unshift({

@@ -36,6 +36,14 @@ marked.use({
       const title = token.title ? ` title="${token.title}"` : '';
       return `<img src="${src}" alt="${token.text || ''}"${title} loading="lazy" />`;
     },
+    code(token) {
+      const lang = (token.lang || '').trim().toLowerCase();
+      if (lang === 'mermaid') {
+        return `<pre class="mermaid">${token.text}</pre>`;
+      }
+      const info = lang ? ` class="language-${lang}"` : '';
+      return `<pre><code${info}>${token.text}</code></pre>`;
+    },
   },
 });
 

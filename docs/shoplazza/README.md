@@ -4,10 +4,13 @@
 
 **浏览器阅读：** 部署或本地 `npm run dev` 后打开 **`/docs`**（左侧导航，正文内链与同目录图片自动跳转）。
 
+**流程图总览：** [onboarding-flow.md](./onboarding-flow.md)（Mermaid：接入步骤、运行时、文档顺序、Access）
+
 ## 文档列表
 
 | 文档 | 说明 |
 |------|------|
+| [onboarding-flow.md](./onboarding-flow.md) | **流程图**：端到端接入、运行时、`/docs` 阅读顺序、Access |
 | [overview.md](./overview.md) | **本项目**：Widget 托管、**Script Tag 管理**、商家 **Fork + 自有 Cloudflare**、`API_DOMAIN` 定价链 |
 | [deploy-cloudflare.md](./deploy-cloudflare.md) | **部署教程**：GitHub Fork → Cloudflare Pages → 环境变量 → Script Tag |
 | [private-app.md](./private-app.md) | **私有应用创建（含步骤截图）**、Scopes、环境变量 |

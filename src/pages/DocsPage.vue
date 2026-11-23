@@ -19,10 +19,14 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
+import 'd3-transition';
+import mermaid from 'mermaid';
 import { docNav, slugToFilename, docsPath } from '../docs/nav.js';
 import { renderMarkdown } from '../docs/renderMarkdown.js';
+
+mermaid.initialize({ startOnLoad: false, securityLevel: 'strict' });
 
 const route = useRoute();
 const html = ref('');
@@ -50,6 +54,11 @@ async function loadDoc() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     html.value = renderMarkdown(await res.text());
     document.title = `店匠接入 — ${file.replace(/\.md$/i, '')}`;
+    await nextTick();
+    const nodes = document.querySelectorAll('.doc-body pre.mermaid');
+    if (nodes.length) {
+      await mermaid.run({ nodes });
+    }
   } catch (e) {
     error.value = String(e.message || e);
   }
@@ -149,11 +158,23 @@ watch(() => route.fullPath, loadDoc, { immediate: true });
   background: #f5f7fa;
 }
 
-.doc-body :deep(pre) {
+.doc-body :deep(pre:not(.mermaid)) {
   overflow-x: auto;
   background: #f5f7fa;
   padding: 12px;
   border-radius: 6px;
+}
+
+.doc-body :deep(pre.mermaid) {
+  background: transparent;
+  padding: 0;
+  margin: 1rem 0;
+  overflow: visible;
+}
+
+.doc-body :deep(svg) {
+  max-width: 100%;
+  height: auto;
 }
 
 .doc-body :deep(code) {

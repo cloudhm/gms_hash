@@ -1,6 +1,7 @@
 /** 侧边栏顺序（slug 对应 `public/shoplazza-docs/{slug}.md`，空串为 README） */
 export const docNav = [
   { title: '接入索引', slug: '' },
+  { title: '接入流程图', slug: 'onboarding-flow' },
   { title: '本项目说明', slug: 'overview' },
   { title: '环境变量', slug: 'environment-variables' },
   { title: 'GOOVAL app-config', slug: 'gooval-app-config' },

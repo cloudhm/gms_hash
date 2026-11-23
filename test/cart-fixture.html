@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>SSS cart widget fixture</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 420px; margin: 2rem auto; }
+    .cart-actions { margin-top: 2rem; }
+    button[name="checkout"] {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    #log { margin-top: 1rem; font-size: 12px; color: #555; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>Cart fixture</h1>
+  <p>Mock cart: one line $50.00 (non-protection).</p>
+  <div class="cart-actions">
+    <button type="button" name="checkout">Checkout</button>
+  </div>
+  <div id="log"></div>
+  <script>
+    window.SHOPLAZZA = { routes: { root: '' } };
+    const PID = '7c811a80-72f8-4972-9305-f32ecf8d35db';
+    let cart = {
+      line_items: [{ product_id: 'other', variant_id: 'v-other', final_line_price: 50, quantity: 1 }],
+    };
+  const config = {
+    productId: PID,
+    rate: 0.02,
+    maxCovered: 2505,
+    feeCap: 50.1,
+    variants: [
+      { id: 'v1', sku: 'S0001', price: 0.98 },
+      { id: 'v2', sku: 'S0002', price: 1.15 },
+      { id: 'v5', sku: 'S0005', price: 2.05 },
+      { id: 'v65', sku: 'S0065', price: 49.48 },
+    ],
+  };
+  const log = (msg) => {
+    document.getElementById('log').textContent += msg + '\n';
+  };
+  const nativeFetch = window.fetch.bind(window);
+  window.fetch = async (url, opts = {}) => {
+    if (String(url).includes('/widget/config')) {
+      return new Response(JSON.stringify(config), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+    if (String(url).includes('/api/cart') && (!opts.method || opts.method === 'GET')) {
+      return new Response(JSON.stringify({ cart }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+    if (String(url).includes('/api/cart') && opts.method === 'POST') {
+      const body = JSON.parse(opts.body || '{}');
+      cart.line_items = cart.line_items.filter((l) => l.product_id !== PID);
+      cart.line_items.push({
+        product_id: body.product_id,
+        variant_id: body.variant_id,
+        quantity: 1,
+        line_price: config.variants.find((v) => v.id === body.variant_id)?.price || 0,
+      });
+      log('POST add variant ' + body.variant_id);
+      queueMicrotask(() => document.dispatchEvent(new CustomEvent('dj.cartChange')));
+      return new Response(JSON.stringify({ cart }), { status: 200 });
+    }
+    if (String(url).includes('/api/cart/') && (opts.method === 'DELETE' || opts.method === 'PATCH')) {
+      const vid = url.split('/api/cart/')[1];
+      cart.line_items = cart.line_items.filter((l) => String(l.variant_id) !== vid);
+      log((opts.method || 'DELETE') + ' remove ' + vid);
+      queueMicrotask(() => document.dispatchEvent(new CustomEvent('dj.cartChange')));
+      return new Response(JSON.stringify({ cart }), { status: 200 });
+    }
+    return nativeFetch(url, opts);
+  };
+  </script>
+  <script src="../public/widget.js"></script>
+</body>
+</html>
